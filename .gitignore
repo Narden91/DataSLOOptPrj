@@ -1,0 +1,38 @@
+# Python
+
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.egg
+*.egg-info/
+
+# Distribution / packaging
+dist/
+build/ 
+eggs/
+bin/
+lib/
+lib64/
+parts/
+sdist/
+wheels/
+develop-eggs/
+.installed.cfg
+*.egg-info/
+.installed.cfg
+# PyInstaller
+#  Usually contains build artifacts
+#  and can be safely ignored.
+pyinstaller/
+#  PyInstaller creates a build/ directory and a dist/ directory.
+#  The build/ directory is used for temporary files and can be ignored.
+
+#  The dist/ directory contains the final executable and can be ignored.
+dist/
+#  The .spec file is used by PyInstaller to build the executable and can be ignored.
+*.spec
