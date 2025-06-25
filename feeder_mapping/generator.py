@@ -37,9 +37,12 @@ class IdealGenerator:
             np.random.seed(seed)
         return np.random.randint(0, self.nf, self.nc)
 
+    
     def _generate_ideal_supply(self, meters, topology):
-        meters_data = self.data[meters, :]
+        meters_data = self.data[meters, :self.nt]
+        
         lines_data = np.zeros((self.nf, self.nt))
         for i in range(self.nf):
             lines_data[i, :] = np.sum(meters_data[topology == i, :], axis=0)
+            
         return meters_data, lines_data
