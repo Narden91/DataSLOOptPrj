@@ -49,13 +49,14 @@ def run_iterative_local_search(objective_function, generate_neighbors, perturbat
         verbose=True
     )
 
+    print("🧩 Ground Truth Feeder Topology:", topology)
     print("\n🏁 Final solution (first 10):", best_solution[:10])
     print(f"🏆 Final objective score: {best_objective:.4f}")
     return best_solution, best_objective
 
 
 if __name__ == "__main__":
-    nc = 10
+    nc = 5
     nf = 2
     nt = 720
     wires_per_feeder = 3
