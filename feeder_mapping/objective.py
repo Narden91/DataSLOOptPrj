@@ -24,7 +24,7 @@ import numpy as np
 #     return error
 
 
-def objective_function(solution: np.ndarray, nc: int, nf: int, meters: np.ndarray, lines: np.ndarray, wires_per_feeder: int = 3) -> float:
+def objective_function_squared_sum(solution: np.ndarray, nc: int, nf: int, meters: np.ndarray, lines: np.ndarray, wires_per_feeder: int = 3) -> float:
     """
     Evaluates how well the 'solution' of wire assignments matches the supply data.
 

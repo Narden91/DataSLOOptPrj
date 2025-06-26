@@ -2,7 +2,7 @@ import numpy as np
 import sys
 import matplotlib.pyplot as plt
 from feeder_mapping.generator import IdealGenerator
-from feeder_mapping.objective import objective_function
+from feeder_mapping.objective import objective_function_squared_sum
 from feeder_mapping.utils import generate_all_connection_vectors
 
 sys.dont_write_bytecode = True
@@ -64,7 +64,7 @@ def plot_results(results):
     plt.show()
 
 
-def run_bruteforce_test(nc = 4, nf = 4, wires_per_feeder = 3, nt = 10, seed = 42):
+def run_bruteforce_test(objective_function, nc=4, nf=4, wires_per_feeder=3, nt=10, seed=42):
     """
     Performs a brute-force search on a small-scale problem, validates
     the objective function, and plots the results.
@@ -116,4 +116,4 @@ def run_bruteforce_test(nc = 4, nf = 4, wires_per_feeder = 3, nt = 10, seed = 42
 
 
 if __name__ == "__main__":
-    run_bruteforce_test(nc = 7, nf = 2, wires_per_feeder = 3, nt = 10, seed = 42)
+    run_bruteforce_test(objective_function=objective_function_squared_sum, nc = 5, nf = 3, wires_per_feeder = 3, nt = 10, seed = 42)
