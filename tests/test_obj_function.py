@@ -1,11 +1,12 @@
 import numpy as np
 import sys
+import os
 import matplotlib.pyplot as plt
-from feeder_mapping.generator import IdealGenerator
-from feeder_mapping.objective import objective_function_squared_sum
-from feeder_mapping.utils import generate_all_connection_vectors
 
 sys.dont_write_bytecode = True
+
+from feeder_mapping import IdealGenerator, objective_function_squared_sum, generate_all_connection_vectors
+
 
 def plot_results(results):
     """Generates and displays a plot of the sorted objective function scores."""
@@ -83,7 +84,7 @@ def run_bruteforce_test(objective_function, nc=4, nf=4, wires_per_feeder=3, nt=1
     print("-" * 50)
 
     # 2. Generate ideal data based on a known ground truth
-    generator = IdealGenerator(nc=nc, nf=nw, nt=nt, data_path="../data/clean_data.csv")
+    generator = IdealGenerator(nc=nc, nf=nw, nt=nt, data_path="data/clean_data.csv")
     meter_supply, line_supply, _, ground_truth_feeder_topo = generator.generate(seed=seed)
 
     print(f"📊 Generated Meter Data Shape: {meter_supply.shape}")

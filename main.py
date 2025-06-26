@@ -2,7 +2,7 @@ import sys
 sys.dont_write_bytecode = True
 
 from feeder_mapping.generator import IdealGenerator
-from feeder_mapping.objective import objective_function
+from feeder_mapping.objective import objective_function_squared_sum
 import numpy as np
   
 
@@ -31,7 +31,7 @@ def run_feeder_mapping(data_path: str, nc: int, nf: int, nt: int, seed: int, wir
     print(f" proposing random wire assignments: {proposed_wire_assignments[:10]}...") 
 
     # Call the objective function with the wire assignments.
-    score = objective_function(
+    score = objective_function_squared_sum(
         solution=proposed_wire_assignments, 
         nc=nc, 
         nf=nf, 
