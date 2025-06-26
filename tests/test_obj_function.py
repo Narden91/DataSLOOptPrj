@@ -7,7 +7,8 @@ from tqdm import tqdm
     
 sys.dont_write_bytecode = True
 
-from feeder_mapping import IdealGenerator, objective_function_squared_sum, generate_all_connection_vectors
+from feeder_mapping import IdealGenerator, objective_function_squared_sum, generate_all_connection_vectors, objective_function_wire_assignment,\
+    objective_function_correlation_based, objective_function_huber_loss, objective_function_mae_based, objective_function_max_error_based
 
 
 def plot_results(results):
@@ -80,6 +81,112 @@ def plot_results(results):
     print(f"💾 Plot saved to: {plot_filename}\n")
 
 
+def plot_results_lexicographic(results):
+    """Generates and displays a plot with vectors ordered lexicographically on the x-axis."""
+    
+    # Sort results by solution vector in lexicographic order
+    results_lexico = sorted(results, key=lambda x: tuple(x['solution']))
+    
+    scores = [r['score'] for r in results_lexico]
+    solutions_str = [str(r['solution']) for r in results_lexico]
+    
+    # Find best and worst scores with their positions in lexicographic order
+    min_score = min(scores)
+    max_score = max(scores)
+    min_indices = [i for i, score in enumerate(scores) if np.isclose(score, min_score)]
+    max_indices = [i for i, score in enumerate(scores) if np.isclose(score, max_score)]
+    
+    print("\n" + "="*60)
+    print("📊 PLOTTING RESULTS (LEXICOGRAPHIC ORDER)")
+    print("="*60)
+    print(f"🏆 Best score:  {min_score:.6f} at positions: {min_indices}")
+    print(f"💥 Worst score: {max_score:.6f} at positions: {max_indices}")
+    print(f"📈 Score range: {max_score - min_score:.6f}")
+    print(f"📋 Total solutions: {len(results_lexico)}")
+    print("="*60)
+
+    plt.style.use('seaborn-v0_8-whitegrid')
+    fig, ax = plt.subplots(figsize=(14, 8))
+
+    num_results = len(results_lexico)
+    x_axis = np.arange(num_results)
+    
+    # Use a bar chart for few results, a line plot for many
+    if num_results <= 100:
+        colors = ['#1f77b4'] * num_results  # Default blue
+        
+        # Highlight best solutions in green
+        for idx in min_indices:
+            colors[idx] = '#2ca02c'
+        
+        # Highlight worst solutions in red
+        for idx in max_indices:
+            colors[idx] = '#d62728'
+        
+        bars = ax.bar(x_axis, scores, color=colors, alpha=0.8)
+        
+        # Add legend
+        ax.bar(0, 0, color='#2ca02c', label=f'Best Solution(s) (Score ≈ {min_score:.4f})', alpha=0.8)
+        ax.bar(0, 0, color='#d62728', label=f'Worst Solution(s) (Score ≈ {max_score:.4f})', alpha=0.8)
+        
+        # Add x-axis labels for small datasets
+        if num_results <= 50:
+            ax.set_xticks(x_axis[::max(1, num_results//20)])
+            ax.set_xticklabels([solutions_str[i] for i in x_axis[::max(1, num_results//20)]], 
+                             rotation=45, ha='right', fontsize=8)
+        else:
+            ax.set_xticks([])
+    else:
+        line = ax.plot(x_axis, scores, marker='.', linestyle='-', markersize=3, 
+                      color='#1f77b4', alpha=0.7, label='Scores')[0]
+        
+        # Highlight best solutions
+        for idx in min_indices:
+            ax.plot(idx, scores[idx], 'go', markersize=6, alpha=0.8)
+        
+        # Highlight worst solutions  
+        for idx in max_indices:
+            ax.plot(idx, scores[idx], 'ro', markersize=6, alpha=0.8)
+        
+        # Add legend
+        ax.plot(0, 0, 'go', markersize=6, label=f'Best Solution(s) (Score ≈ {min_score:.4f})', alpha=0.8)
+        ax.plot(0, 0, 'ro', markersize=6, label=f'Worst Solution(s) (Score ≈ {max_score:.4f})', alpha=0.8)
+
+    # Annotate some key solutions
+    if min_indices:
+        best_idx = min_indices[0]
+        best_text = f"Best: {solutions_str[best_idx]}\nScore: {scores[best_idx]:.4f}"
+        ax.annotate(best_text, xy=(best_idx, scores[best_idx]), xytext=(20, 30),
+                    textcoords='offset points', arrowprops=dict(arrowstyle="->", color='green'),
+                    bbox=dict(boxstyle="round,pad=0.3", fc="palegreen", ec="g", lw=1, alpha=0.9),
+                    fontsize=9)
+
+    if max_indices:
+        worst_idx = max_indices[0] 
+        worst_text = f"Worst: {solutions_str[worst_idx]}\nScore: {scores[worst_idx]:.4f}"
+        ax.annotate(worst_text, xy=(worst_idx, scores[worst_idx]), xytext=(-80, -40),
+                    textcoords='offset points', arrowprops=dict(arrowstyle="->", color='red'),
+                    bbox=dict(boxstyle="round,pad=0.3", fc="lightcoral", ec="r", lw=1, alpha=0.9),
+                    fontsize=9)
+
+    ax.set_title(f'Objective Function Scores (Lexicographic Order of Solution Vectors)', fontsize=16)
+    ax.set_xlabel('Solution Vector Index (Lexicographic Order)', fontsize=12)
+    ax.set_ylabel('Objective Score (Sum of Squared Errors)', fontsize=12)
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+    
+    # Save the plot
+    plots_dir = "plots"
+    if not os.path.exists(plots_dir):
+        os.makedirs(plots_dir)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    plot_filename = os.path.join(plots_dir, f"bruteforce_lexicographic_{timestamp}.png")
+    fig.savefig(plot_filename, dpi=300, bbox_inches='tight')
+    print(f"💾 Lexicographic plot saved to: {plot_filename}\n")
+
+
 def run_bruteforce_test(objective_function, nc=4, nf=4, wires_per_feeder=3, nt=10, seed=42):
     """
     Performs a brute-force search on a small-scale problem, validates
@@ -147,8 +254,9 @@ def run_bruteforce_test(objective_function, nc=4, nf=4, wires_per_feeder=3, nt=1
     
     print("✅ Evaluation complete!")
 
-    # 4. Plot the results
+    # 4. Plot the results - both sorted by score and lexicographic order
     plot_results(results)
+    plot_results_lexicographic(results)
 
 
 if __name__ == "__main__":
@@ -158,7 +266,17 @@ if __name__ == "__main__":
     nt = 10  # Number of time steps (not used in this test)
     seed = 42  # Random seed for reproducibility
     
+    # Objective function to test
+    # 1. Squared sum of errors -> objective_function_squared_sum
+    # 2. Wire assignment -> objective_function_wire_assignment
+    # 3. Correlation-based -> objective_function_correlation_based
+    # 4. Huber loss -> objective_function_huber_loss
+    # 5. Mean Absolute Error -> objective_function_mae_based
+    # 6. Max error -> objective_function_max_error_based
+    objective_function = objective_function_squared_sum # objective_function_wire_assignment
+    
+    
     run_bruteforce_test(
-        objective_function=objective_function_squared_sum,
+        objective_function=objective_function,
         nc=nc, nf=nf, wires_per_feeder=wires_per_feeder, nt=nt, seed=seed
     )
