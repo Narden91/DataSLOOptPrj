@@ -1,8 +1,7 @@
 import sys
 sys.dont_write_bytecode = True
 
-from feeder_mapping.generator import IdealGenerator
-from feeder_mapping.objective import objective_function_squared_sum
+from feeder_mapping import IdealGenerator, objective_function_squared_sum, generate_all_connection_vectors
 import numpy as np
   
 
@@ -41,6 +40,7 @@ def run_feeder_mapping(data_path: str, nc: int, nf: int, nt: int, seed: int, wir
     )
 
     print(f"🎯 Objective Function Score (Random Wire Assignment): {score:.4f}")
+
 
 if __name__ == "__main__":
     

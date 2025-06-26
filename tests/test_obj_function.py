@@ -1,6 +1,5 @@
 import numpy as np
 import sys
-import os
 import matplotlib.pyplot as plt
 
 sys.dont_write_bytecode = True
@@ -69,13 +68,16 @@ def run_bruteforce_test(objective_function, nc=4, nf=4, wires_per_feeder=3, nt=1
     """
     Performs a brute-force search on a small-scale problem, validates
     the objective function, and plots the results.
+    
+    objective_function: The function to evaluate solutions.
+    nc: Number of consumers (apartments).
+    nf: Number of feeders (cables).
+    wires_per_feeder: Number of wires per feeder (e.g., 3 for 3-phase).
+    nt: Number of time steps.
+    seed: Random seed for reproducibility.
+    
     """
     # 1. Define parameters for a small, solvable problem
-    # nc -> Number of consumers (apartments)
-    # nf -> Number of feeders (cables)
-    # wires_per_feeder -> Wires per cable (e.g., 3-phase)
-    # nt -> Number of time steps
-
     nw = nf * wires_per_feeder # Total wires in the system
 
     print("--- Starting Brute-Force Objective Function Test ---")
@@ -117,4 +119,5 @@ def run_bruteforce_test(objective_function, nc=4, nf=4, wires_per_feeder=3, nt=1
 
 
 if __name__ == "__main__":
-    run_bruteforce_test(objective_function=objective_function_squared_sum, nc = 5, nf = 3, wires_per_feeder = 3, nt = 10, seed = 42)
+    run_bruteforce_test(objective_function=objective_function_squared_sum,
+                        nc = 5, nf = 3, wires_per_feeder = 3, nt = 10, seed = 42)
