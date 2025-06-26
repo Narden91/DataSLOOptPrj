@@ -83,7 +83,7 @@ def run_bruteforce_test():
     print("-" * 50)
 
     # 2. Generate ideal data based on a known ground truth
-    generator = IdealGenerator(nc=nc, nf=nf, nt=nt, data_path="data/clean_data.csv")
+    generator = IdealGenerator(nc=nc, nf=nf, nt=nt, data_path="../data/clean_data.csv")
     meter_supply, line_supply, _, ground_truth_feeder_topo = generator.generate(seed=seed)
 
     print(f"📊 Generated Meter Data Shape: {meter_supply.shape}")
