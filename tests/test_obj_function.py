@@ -64,18 +64,18 @@ def plot_results(results):
     plt.show()
 
 
-def run_bruteforce_test():
+def run_bruteforce_test(nc = 4, nf = 4, wires_per_feeder = 3, nt = 10, seed = 42):
     """
     Performs a brute-force search on a small-scale problem, validates
     the objective function, and plots the results.
     """
     # 1. Define parameters for a small, solvable problem
-    nc = 4                # Number of consumers (apartments)
-    nf = 4                # Number of feeders (cables)
-    wires_per_feeder = 3  # Wires per cable (e.g., 3-phase)
+    # nc -> Number of consumers (apartments)
+    # nf -> Number of feeders (cables)
+    # wires_per_feeder -> Wires per cable (e.g., 3-phase)
+    # nt -> Number of time steps
+
     nw = nf * wires_per_feeder # Total wires in the system
-    nt = 10               # Number of time steps
-    seed = 42
 
     print("--- Starting Brute-Force Objective Function Test ---")
     print(f"Parameters: nc={nc}, nf={nf}, nt={nt}, nw={nw}, wires_per_feeder={wires_per_feeder}")
@@ -83,7 +83,7 @@ def run_bruteforce_test():
     print("-" * 50)
 
     # 2. Generate ideal data based on a known ground truth
-    generator = IdealGenerator(nc=nc, nf=nf, nt=nt, data_path="../data/clean_data.csv")
+    generator = IdealGenerator(nc=nc, nf=nw, nt=nt, data_path="../data/clean_data.csv")
     meter_supply, line_supply, _, ground_truth_feeder_topo = generator.generate(seed=seed)
 
     print(f"📊 Generated Meter Data Shape: {meter_supply.shape}")
@@ -98,10 +98,13 @@ def run_bruteforce_test():
     )
 
     results = []
+    n_of_solutions = nw**nc
     for i, proposed_solution in enumerate(all_possible_solutions):
+        if (i+1)%20000==0:
+            print(f"Progress: {i+1} / {n_of_solutions}")
         score = objective_function(
             solution=proposed_solution,
-            nc=nc, nf=nf, meters=meter_supply, lines=line_supply,
+            nc=nc, nf=nw, meters=meter_supply, lines=line_supply,
             wires_per_feeder=wires_per_feeder
         )
         results.append({'solution': proposed_solution, 'score': score})
@@ -113,4 +116,4 @@ def run_bruteforce_test():
 
 
 if __name__ == "__main__":
-    run_bruteforce_test()
+    run_bruteforce_test(nc = 7, nf = 2, wires_per_feeder = 3, nt = 10, seed = 42)
