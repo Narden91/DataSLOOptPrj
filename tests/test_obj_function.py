@@ -77,8 +77,8 @@ def run_bruteforce_test(objective_function, nc=4, nf=4, wires_per_feeder=3, nt=1
     seed: Random seed for reproducibility.
     
     """
-    # 1. Define parameters for a small, solvable problem
-    nw = nf * wires_per_feeder # Total wires in the system
+    # 1. Calculate the total number of wires in the system
+    nw = nf * wires_per_feeder 
 
     print("--- Starting Brute-Force Objective Function Test ---")
     print(f"Parameters: nc={nc}, nf={nf}, nt={nt}, nw={nw}, wires_per_feeder={wires_per_feeder}")
@@ -119,5 +119,13 @@ def run_bruteforce_test(objective_function, nc=4, nf=4, wires_per_feeder=3, nt=1
 
 
 if __name__ == "__main__":
-    run_bruteforce_test(objective_function=objective_function_squared_sum,
-                        nc = 5, nf = 3, wires_per_feeder = 3, nt = 10, seed = 42)
+    nc= 5  # Number of consumers (apartments)
+    nf = 3  # Number of feeders (cables)
+    wires_per_feeder = 3  # Number of wires per feeder (e.g., 3 for 3-phase)
+    nt = 10  # Number of time steps (not used in this test)
+    seed = 42  # Random seed for reproducibility
+    
+    run_bruteforce_test(
+        objective_function=objective_function_squared_sum,
+        nc=nc, nf=nf, wires_per_feeder=wires_per_feeder, nt=nt, seed=seed
+    )
