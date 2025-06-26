@@ -1,9 +1,23 @@
 import pandas as pd
 import numpy as np
 
-
 class IdealGenerator:
+    """Ideal generator of data for testing purposes. It generates a grid with
+        ideal meters and ideal supply. It also generates a list of meters that
+        are connected to the supply."""
+
     def __init__(self, nc, nf, nt=720, data=None, data_path=None):
+        """Initialize the ideal generator.
+                Args:
+                    nc (int) number of consumers in the grid
+                    nf (int) number of feeders in the grid
+                    nt (int) number of time steps
+                    data (numpy array) data of shape (nc, nt) (optional)
+                    data_path (str) path to the csv file with the data (optional)
+                Returns:
+                    grid: (numpy array) ideal grid - Consumers x Feeders x Time
+                    real assignment: (numpy array) real assignment of consumers to feeders
+                """
         self.nc = nc
         self.nf = nf
         self.nt = nt
