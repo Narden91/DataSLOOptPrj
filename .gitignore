@@ -36,3 +36,5 @@ pyinstaller/
 dist/
 #  The .spec file is used by PyInstaller to build the executable and can be ignored.
 *.spec
+
+plots/
