@@ -1,7 +1,10 @@
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
-
+import os
+from datetime import datetime
+from tqdm import tqdm
+    
 sys.dont_write_bytecode = True
 
 from feeder_mapping import IdealGenerator, objective_function_squared_sum, generate_all_connection_vectors
@@ -17,9 +20,13 @@ def plot_results(results):
     # Convert solution vectors to strings for labeling
     solutions_str = [str(r['solution']) for r in results]
 
-    print("\n--- Plotting Results ---")
-    print(f"Lowest score: {scores[0]:.4f} for solution {solutions_str[0]}")
-    print(f"Highest score: {scores[-1]:.4f} for solution {solutions_str[-1]}")
+    print("\n" + "="*60)
+    print("📊 PLOTTING RESULTS")
+    print("="*60)
+    print(f"🏆 Best score:  {scores[0]:.6f} → Solution: {solutions_str[0]}")
+    print(f"💥 Worst score: {scores[-1]:.6f} → Solution: {solutions_str[-1]}")
+    print(f"📈 Score range: {scores[-1] - scores[0]:.6f}")
+    print("="*60)
 
     plt.style.use('seaborn-v0_8-whitegrid')
     fig, ax = plt.subplots(figsize=(12, 7))
@@ -62,6 +69,15 @@ def plot_results(results):
     ax.legend()
     plt.tight_layout()
     plt.show()
+    
+    # Save the plot to a file in plots directory with a timestamp
+    plots_dir = "plots"
+    if not os.path.exists(plots_dir):
+        os.makedirs(plots_dir)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    plot_filename = os.path.join(plots_dir, f"bruteforce_results_{timestamp}.png")
+    fig.savefig(plot_filename, dpi=300)
+    print(f"💾 Plot saved to: {plot_filename}\n")
 
 
 def run_bruteforce_test(objective_function, nc=4, nf=4, wires_per_feeder=3, nt=10, seed=42):
@@ -80,21 +96,30 @@ def run_bruteforce_test(objective_function, nc=4, nf=4, wires_per_feeder=3, nt=1
     # 1. Calculate the total number of wires in the system
     nw = nf * wires_per_feeder 
 
-    print("--- Starting Brute-Force Objective Function Test ---")
-    print(f"Parameters: nc={nc}, nf={nf}, nt={nt}, nw={nw}, wires_per_feeder={wires_per_feeder}")
-    print(f"Total combinations to check: {nw**nc} ({nw}^{nc})")
-    print("-" * 50)
+    print("\n" + "="*70)
+    print("🚀 BRUTE-FORCE OBJECTIVE FUNCTION TEST")
+    print("="*70)
+    print(f"🏠 Consumers (apartments): {nc}")
+    print(f"🔌 Feeders (cables):       {nf}")
+    print(f"⚡ Wires per feeder:       {wires_per_feeder}")
+    print(f"🕐 Time steps:             {nt}")
+    print(f"🔢 Total wires:            {nw}")
+    print(f"🎯 Random seed:            {seed}")
+    print(f"🧮 Total combinations:     {nw**nc:,} ({nw}^{nc})")
+    print("="*70)
 
     # 2. Generate ideal data based on a known ground truth
+    print("\n🔧 Generating synthetic data...")
     generator = IdealGenerator(nc=nc, nf=nw, nt=nt, data_path="data/clean_data.csv")
     meter_supply, line_supply, _, ground_truth_feeder_topo = generator.generate(seed=seed)
 
-    print(f"📊 Generated Meter Data Shape: {meter_supply.shape}")
-    print(f"🔌 Generated Line Data Shape: {line_supply.shape}")
-    print(f"🧩 Ground Truth Feeder Topology: {ground_truth_feeder_topo}\n")
+    print(f"✅ Data generation complete!")
+    print(f"   📊 Meter data shape:      {meter_supply.shape}")
+    print(f"   🔌 Line data shape:       {line_supply.shape}")
+    print(f"   🧩 Ground truth topology: {ground_truth_feeder_topo}")
 
     # 3. Iterate through every possible solution vector and store results
-    print("Evaluating all possible wire assignments...")
+    print(f"\n🔍 Evaluating all {nw**nc:,} possible wire assignments...")
     all_possible_solutions = generate_all_connection_vectors(
         n_apartments=nc, 
         n_phases=nw  # 'n_phases' is the number of wire choices
@@ -102,17 +127,25 @@ def run_bruteforce_test(objective_function, nc=4, nf=4, wires_per_feeder=3, nt=1
 
     results = []
     n_of_solutions = nw**nc
-    for i, proposed_solution in enumerate(all_possible_solutions):
-        if (i+1)%20000==0:
-            print(f"Progress: {i+1} / {n_of_solutions}")
-        score = objective_function(
-            solution=proposed_solution,
-            nc=nc, nf=nw, meters=meter_supply, lines=line_supply,
-            wires_per_feeder=wires_per_feeder
-        )
-        results.append({'solution': proposed_solution, 'score': score})
     
-    print("...Evaluation complete.\n")
+    # Use tqdm for progress bar
+    with tqdm(total=n_of_solutions, desc="🔄 Processing", unit="solutions", 
+              bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]") as pbar:
+        for i, proposed_solution in enumerate(all_possible_solutions):
+            score = objective_function(
+                solution=proposed_solution,
+                nc=nc, nf=nw, meters=meter_supply, lines=line_supply,
+                wires_per_feeder=wires_per_feeder
+            )
+            results.append({'solution': proposed_solution, 'score': score})
+            pbar.update(1)
+            
+            # Update description with current best score every 1000 iterations
+            if (i + 1) % 1000 == 0 and results:
+                current_best = min(results, key=lambda x: x['score'])['score']
+                pbar.set_description(f"🔄 Processing (best: {current_best:.4f})")
+    
+    print("✅ Evaluation complete!")
 
     # 4. Plot the results
     plot_results(results)
