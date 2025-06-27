@@ -11,6 +11,65 @@ from feeder_mapping import IdealGenerator, objective_function_squared_sum, gener
     objective_function_correlation_based, objective_function_huber_loss, objective_function_mae_based, objective_function_max_error_based
 
 
+def plot_multiple_results(results_dict, objective_function_names):
+    """Generates and displays a plot comparing multiple objective functions."""
+    
+    plt.style.use('seaborn-v0_8-whitegrid')
+    fig, ax = plt.subplots(figsize=(14, 8))
+    
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
+    
+    print("\n" + "="*80)
+    print("📊 PLOTTING COMPARISON OF MULTIPLE OBJECTIVE FUNCTIONS")
+    print("="*80)
+    
+    for idx, (obj_name, results) in enumerate(results_dict.items()):
+        # Sort results by score in ascending order
+        results.sort(key=lambda x: x['score'])
+        scores = [r['score'] for r in results]
+        num_results = len(results)
+        x_axis = np.arange(num_results)
+        
+        color = colors[idx % len(colors)]
+        
+        # Plot the scores
+        ax.plot(x_axis, scores, marker='.', linestyle='-', markersize=3, 
+                color=color, alpha=0.8, label=f'{obj_name}', linewidth=2)
+        
+        # Highlight the best solution for each function
+        ax.plot(0, scores[0], 'o', color=color, markersize=8, alpha=0.9)
+        
+        # Print statistics
+        best_score = scores[0]
+        worst_score = scores[-1]
+        solutions_str = [str(r['solution']) for r in results]
+        
+        print(f"🎯 {obj_name}:")
+        print(f"   🏆 Best score:  {best_score:.6f} → Solution: {solutions_str[0]}")
+        print(f"   💥 Worst score: {worst_score:.6f} → Solution: {solutions_str[-1]}")
+        print(f"   📈 Score range: {worst_score - best_score:.6f}")
+        print("-" * 60)
+    
+    ax.set_title('Comparison of Objective Function Scores (All Solutions Sorted by Score)', fontsize=18)
+    ax.set_xlabel('Solution Index (Sorted by Score for Each Function)', fontsize=14)
+    ax.set_ylabel('Objective Score', fontsize=14)
+    ax.legend(fontsize=13)
+    ax.grid(True, alpha=0.3)
+    ax.tick_params(axis='both', which='major', labelsize=12)
+    plt.tight_layout()
+    plt.show()
+    
+    # Save the comparison plot
+    plots_dir = "plots"
+    if not os.path.exists(plots_dir):
+        os.makedirs(plots_dir)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    plot_filename = os.path.join(plots_dir, f"objective_functions_comparison_{timestamp}.png")
+    fig.savefig(plot_filename, dpi=300, bbox_inches='tight')
+    print(f"💾 Comparison plot saved to: {plot_filename}\n")
+    print("="*80)
+    
+
 def plot_results(results, objective_function_name="unknown"):
     """Generates and displays a plot of the sorted objective function scores."""
     
@@ -64,10 +123,11 @@ def plot_results(results, objective_function_name="unknown"):
                 textcoords='offset points', arrowprops=dict(arrowstyle="->"),
                 bbox=dict(boxstyle="round,pad=0.3", fc="lightcoral", ec="r", lw=1, alpha=0.9))
 
-    ax.set_title(f'Objective Function Scores for All {num_results} Possible Solutions (Sorted)', fontsize=16)
-    ax.set_xlabel('Each Solution Vector (Sorted by Score)', fontsize=12)
-    ax.set_ylabel('Objective Score (Sum of Squared Errors)', fontsize=12)
+    ax.set_title(f'Objective Function Scores for All {num_results} Possible Solutions (Sorted)', fontsize=18)
+    ax.set_xlabel('Each Solution Vector (Sorted by Score)', fontsize=14)
+    ax.set_ylabel('Objective Score (Sum of Squared Errors)', fontsize=14)
     ax.legend()
+    ax.tick_params(axis='both', which='major', labelsize=12)
     plt.tight_layout()
     plt.show()
     
@@ -133,7 +193,7 @@ def plot_results_lexicographic(results, objective_function_name="unknown"):
         if num_results <= 50:
             ax.set_xticks(x_axis[::max(1, num_results//20)])
             ax.set_xticklabels([solutions_str[i] for i in x_axis[::max(1, num_results//20)]], 
-                             rotation=45, ha='right', fontsize=8)
+                             rotation=45, ha='right', fontsize=12)
         else:
             ax.set_xticks([])
     else:
@@ -169,11 +229,12 @@ def plot_results_lexicographic(results, objective_function_name="unknown"):
                     bbox=dict(boxstyle="round,pad=0.3", fc="lightcoral", ec="r", lw=1, alpha=0.9),
                     fontsize=9)
 
-    ax.set_title(f'Objective Function Scores (Lexicographic Order of Solution Vectors)', fontsize=16)
-    ax.set_xlabel('Solution Vector Index (Lexicographic Order)', fontsize=12)
-    ax.set_ylabel('Objective Score (Sum of Squared Errors)', fontsize=12)
+    ax.set_title(f'Objective Function Scores (Lexicographic Order of Solution Vectors)', fontsize=18)
+    ax.set_xlabel('Solution Vector Index (Lexicographic Order)', fontsize=14)
+    ax.set_ylabel('Objective Score (Sum of Squared Errors)', fontsize=14)
     ax.legend()
     ax.grid(True, alpha=0.3)
+    ax.tick_params(axis='y', which='major', labelsize=12)
     plt.tight_layout()
     plt.show()
     
@@ -277,7 +338,7 @@ if __name__ == "__main__":
     # 4. Huber loss -> objective_function_huber_loss
     # 5. Mean Absolute Error -> objective_function_mae_based
     # 6. Max error -> objective_function_max_error_based
-    objective_function = objective_function_wire_assignment    
+    objective_function = objective_function_squared_sum    
     
     run_bruteforce_test(
         objective_function=objective_function,
