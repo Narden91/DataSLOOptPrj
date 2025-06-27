@@ -75,64 +75,63 @@ def objective_function_wire_assignment(solution: np.ndarray, nc: int, nf: int,
                                      wires_per_feeder: int = 3) -> float:
     """
     Evaluates how well the 'solution' of wire assignments matches the supply data.
-    This function implements the mathematical formulation:
+    This function implements the mathematical formulation at the feeder level:
     
-    f(w) = sum_{w=1 to nw} ||y_w - sum_{i=1 to nc} 1(w_i = w) * x_i||_2^2
+    f(w) = sum_{l=1 to nf} ||y_l - sum_{i: cable(w_i) = l} x_i||_2^2
     
     where:
     - w is the wire assignment vector
-    - y_w is the measured supply for wire w
+    - y_l is the measured supply for feeder l
     - x_i is the consumption of apartment i
-    - 1(w_i = w) is the indicator function (1 if apartment i is on wire w, 0 otherwise)
+    - cable(w_i) = l maps wire assignments to feeder assignments
     - ||·||_2^2 is the squared Euclidean norm (sum of squared differences over time)
     
     Args:
         solution: 1D array of shape (nc,). Represents the wire assignment w_i for
                   each consumer i. Values are 0-indexed, from 0 to (nf * wires_per_feeder - 1).
-                  This corresponds to w_i in {1,...,24} but using 0-based indexing.
         nc: Number of consumers (apartments). Typically 100.
-        nf: Number of feeders (cables). Used to calculate total wires = nf * wires_per_feeder.
+        nf: Number of feeders (cables).
         meters: Consumption data for each consumer x_i(t). Shape (nc, nt).
                 Each row represents one apartment's consumption over time.
-        lines: Supply data for each wire y_w(t). Shape (nf * wires_per_feeder, nt).
-               Each row represents one wire's measured supply over time.
+        lines: Supply data for each feeder y_l(t). Shape (nf, nt).
+               Each row represents one feeder's measured supply over time.
         wires_per_feeder: Number of wires per feeder. Defaults to 3 for 3-phase systems.
     
     Returns:
         float: The Sum of Squared Errors (SSE) score representing the mismatch
-               between predicted and actual wire supplies.
+               between predicted and actual feeder supplies.
     
     Example:
         >>> nc, nf, wires_per_feeder, nt = 100, 8, 3, 720
-        >>> nw = nf * wires_per_feeder  # 24 total wires
-        >>> solution = np.random.randint(0, nw, size=nc)  # Random wire assignments
+        >>> solution = np.random.randint(0, nf * wires_per_feeder, size=nc)  # Random wire assignments
         >>> meters = np.random.rand(nc, nt)  # Consumer consumption data
-        >>> lines = np.random.rand(nw, nt)   # Wire supply measurements
+        >>> lines = np.random.rand(nf, nt)   # Feeder supply measurements
         >>> error = objective_function_wire_assignment(solution, nc, nf, meters, lines, wires_per_feeder)
     """
-    # Calculate total number of wires
-    nw = nf * wires_per_feeder
-    
     # Validate input dimensions
     if solution.shape[0] != nc:
         raise ValueError(f"Solution must have {nc} elements, got {solution.shape[0]}")
     if meters.shape[0] != nc:
         raise ValueError(f"Meters must have {nc} rows, got {meters.shape[0]}")
-    if lines.shape[0] != nw:
-        raise ValueError(f"Lines must have {nw} rows, got {lines.shape[0]}")
+    if lines.shape[0] != nf:
+        raise ValueError(f"Lines must have {nf} rows, got {lines.shape[0]}")
     if meters.shape[1] != lines.shape[1]:
         raise ValueError("Meters and lines must have same number of time steps")
     
-    # Create a boolean mask for wire assignments
-    # assignment_mask[w, i] = True if consumer i is assigned to wire w
-    assignment_mask = solution[np.newaxis, :] == np.arange(nw)[:, np.newaxis]
+    # Map wire assignments to feeder assignments (same logic as objective_function_squared_sum)
+    feeder_assignments = solution // wires_per_feeder
     
-    # Calculate estimated wire supplies using matrix multiplication
-    # This efficiently computes: sum_{i: w_i = w} x_i for all wires w
-    estimated_wires = assignment_mask @ meters
+    # Initialize the estimated supply for each feeder line based on the proposed solution
+    estimated_lines = np.zeros_like(lines)
     
-    # Calculate the sum of squared errors across all wires and time steps
-    error = np.sum((lines - estimated_wires) ** 2)
+    # For each feeder, find all consumers connected to it and sum their consumption
+    for f_idx in range(nf):
+        consumer_indices = np.where(feeder_assignments == f_idx)[0]
+        if len(consumer_indices) > 0:
+            estimated_lines[f_idx, :] = np.sum(meters[consumer_indices, :], axis=0)
+    
+    # Calculate the sum of squared errors across all feeders and time steps
+    error = np.sum((lines - estimated_lines) ** 2)
     
     return float(error)
 
@@ -143,13 +142,13 @@ def objective_function_correlation_based(solution: np.ndarray, nc: int, nf: int,
     """
     Alternative objective function based on correlation analysis.
     
-    This function maximizes the correlation between predicted and actual wire supplies
+    This function maximizes the correlation between predicted and actual feeder supplies
     by minimizing the negative correlation coefficient. The intuition is that if 
-    apartments are correctly assigned to wires, the temporal patterns of aggregated 
-    consumption should strongly correlate with the measured wire supplies.
+    apartments are correctly assigned to feeders, the temporal patterns of aggregated 
+    consumption should strongly correlate with the measured feeder supplies.
     
     Mathematical formulation:
-    f(w) = -sum_{w=1 to nw} corr(y_w, sum_{i: w_i = w} x_i)
+    f(w) = -sum_{l=1 to nf} corr(y_l, sum_{i: cable(w_i) = l} x_i)
     
     where corr(a, b) is the Pearson correlation coefficient between vectors a and b.
     
@@ -158,51 +157,54 @@ def objective_function_correlation_based(solution: np.ndarray, nc: int, nf: int,
         nc: Number of consumers (apartments).
         nf: Number of feeders (cables).
         meters: Consumption data for each consumer. Shape (nc, nt).
-        lines: Supply data for each wire. Shape (nf * wires_per_feeder, nt).
+        lines: Supply data for each feeder. Shape (nf, nt).
         wires_per_feeder: Number of wires per feeder.
     
     Returns:
         float: Negative sum of correlation coefficients (lower is better).
     """
-    # Calculate total number of wires
-    nw = nf * wires_per_feeder
-    
     # Validate input dimensions
     if solution.shape[0] != nc:
         raise ValueError(f"Solution must have {nc} elements, got {solution.shape[0]}")
     if meters.shape[0] != nc:
         raise ValueError(f"Meters must have {nc} rows, got {meters.shape[0]}")
-    if lines.shape[0] != nw:
-        raise ValueError(f"Lines must have {nw} rows, got {lines.shape[0]}")
+    if lines.shape[0] != nf:
+        raise ValueError(f"Lines must have {nf} rows, got {lines.shape[0]}")
     if meters.shape[1] != lines.shape[1]:
         raise ValueError("Meters and lines must have same number of time steps")
     
-    # Create assignment mask
-    assignment_mask = solution[np.newaxis, :] == np.arange(nw)[:, np.newaxis]
+    # Map wire assignments to feeder assignments (same logic as objective_function_squared_sum)
+    feeder_assignments = solution // wires_per_feeder
     
-    # Calculate estimated wire supplies
-    estimated_wires = assignment_mask @ meters
+    # Initialize the estimated supply for each feeder line based on the proposed solution
+    estimated_lines = np.zeros_like(lines)
+    
+    # For each feeder, find all consumers connected to it and sum their consumption
+    for f_idx in range(nf):
+        consumer_indices = np.where(feeder_assignments == f_idx)[0]
+        if len(consumer_indices) > 0:
+            estimated_lines[f_idx, :] = np.sum(meters[consumer_indices, :], axis=0)
     
     total_correlation = 0.0
-    valid_wires = 0
+    valid_feeders = 0
     
-    for w_idx in range(nw):
-        actual = lines[w_idx, :]
-        predicted = estimated_wires[w_idx, :]
+    for f_idx in range(nf):
+        actual = lines[f_idx, :]
+        predicted = estimated_lines[f_idx, :]
         
-        # Skip wires with no assigned consumers or constant values
+        # Skip feeders with no assigned consumers or constant values
         if np.std(predicted) > 1e-10 and np.std(actual) > 1e-10:
             # Calculate Pearson correlation coefficient
             correlation = np.corrcoef(actual, predicted)[0, 1]
             # Handle NaN correlations (shouldn't happen with std check, but be safe)
             if not np.isnan(correlation):
                 total_correlation += correlation
-                valid_wires += 1
+                valid_feeders += 1
     
     # Return negative correlation (we want to minimize, so maximize correlation)
-    # Normalize by number of valid wires to make scores comparable across different assignments
-    if valid_wires > 0:
-        return float(-total_correlation / valid_wires)
+    # Normalize by number of valid feeders to make scores comparable across different assignments
+    if valid_feeders > 0:
+        return float(-total_correlation / valid_feeders)
     else:
         return float(0.0)  # No valid correlations, neutral score
 
@@ -218,40 +220,43 @@ def objective_function_mae_based(solution: np.ndarray, nc: int, nf: int,
     while L2 norm (squared errors) heavily penalizes large deviations.
     
     Mathematical formulation:
-    f(w) = sum_{w=1 to nw} sum_{t=1 to T} |y_w(t) - sum_{i: w_i = w} x_i(t)|
+    f(w) = sum_{l=1 to nf} sum_{t=1 to T} |y_l(t) - sum_{i: cable(w_i) = l} x_i(t)|
     
     Args:
         solution: 1D array of shape (nc,). Wire assignments for each consumer.
         nc: Number of consumers (apartments).
         nf: Number of feeders (cables).
         meters: Consumption data for each consumer. Shape (nc, nt).
-        lines: Supply data for each wire. Shape (nf * wires_per_feeder, nt).
+        lines: Supply data for each feeder. Shape (nf, nt).
         wires_per_feeder: Number of wires per feeder.
     
     Returns:
         float: Sum of absolute errors (MAE-based objective).
     """
-    # Calculate total number of wires
-    nw = nf * wires_per_feeder
-    
     # Validate input dimensions
     if solution.shape[0] != nc:
         raise ValueError(f"Solution must have {nc} elements, got {solution.shape[0]}")
     if meters.shape[0] != nc:
         raise ValueError(f"Meters must have {nc} rows, got {meters.shape[0]}")
-    if lines.shape[0] != nw:
-        raise ValueError(f"Lines must have {nw} rows, got {lines.shape[0]}")
+    if lines.shape[0] != nf:
+        raise ValueError(f"Lines must have {nf} rows, got {lines.shape[0]}")
     if meters.shape[1] != lines.shape[1]:
         raise ValueError("Meters and lines must have same number of time steps")
     
-    # Create assignment mask
-    assignment_mask = solution[np.newaxis, :] == np.arange(nw)[:, np.newaxis]
+    # Map wire assignments to feeder assignments (same logic as objective_function_squared_sum)
+    feeder_assignments = solution // wires_per_feeder
     
-    # Calculate estimated wire supplies
-    estimated_wires = assignment_mask @ meters
+    # Initialize the estimated supply for each feeder line based on the proposed solution
+    estimated_lines = np.zeros_like(lines)
+    
+    # For each feeder, find all consumers connected to it and sum their consumption
+    for f_idx in range(nf):
+        consumer_indices = np.where(feeder_assignments == f_idx)[0]
+        if len(consumer_indices) > 0:
+            estimated_lines[f_idx, :] = np.sum(meters[consumer_indices, :], axis=0)
     
     # Calculate the sum of absolute errors (L1 norm)
-    error = np.sum(np.abs(lines - estimated_wires))
+    error = np.sum(np.abs(lines - estimated_lines))
     
     return float(error)
 
@@ -262,45 +267,48 @@ def objective_function_max_error_based(solution: np.ndarray, nc: int, nf: int,
     """
     Alternative objective function based on maximum error (L∞ norm).
     
-    This function minimizes the worst-case error across all wires and time steps.
-    It's particularly useful when you want to ensure that no single wire has
+    This function minimizes the worst-case error across all feeders and time steps.
+    It's particularly useful when you want to ensure that no single feeder has
     a very large prediction error, even if the overall average error is acceptable.
     
     Mathematical formulation:
-    f(w) = max_{w,t} |y_w(t) - sum_{i: w_i = w} x_i(t)|
+    f(w) = max_{l,t} |y_l(t) - sum_{i: cable(w_i) = l} x_i(t)|
     
     Args:
         solution: 1D array of shape (nc,). Wire assignments for each consumer.
         nc: Number of consumers (apartments).
         nf: Number of feeders (cables).
         meters: Consumption data for each consumer. Shape (nc, nt).
-        lines: Supply data for each wire. Shape (nf * wires_per_feeder, nt).
+        lines: Supply data for each feeder. Shape (nf, nt).
         wires_per_feeder: Number of wires per feeder.
     
     Returns:
-        float: Maximum absolute error across all wires and time steps.
+        float: Maximum absolute error across all feeders and time steps.
     """
-    # Calculate total number of wires
-    nw = nf * wires_per_feeder
-    
     # Validate input dimensions
     if solution.shape[0] != nc:
         raise ValueError(f"Solution must have {nc} elements, got {solution.shape[0]}")
     if meters.shape[0] != nc:
         raise ValueError(f"Meters must have {nc} rows, got {meters.shape[0]}")
-    if lines.shape[0] != nw:
-        raise ValueError(f"Lines must have {nw} rows, got {lines.shape[0]}")
+    if lines.shape[0] != nf:
+        raise ValueError(f"Lines must have {nf} rows, got {lines.shape[0]}")
     if meters.shape[1] != lines.shape[1]:
         raise ValueError("Meters and lines must have same number of time steps")
     
-    # Create assignment mask
-    assignment_mask = solution[np.newaxis, :] == np.arange(nw)[:, np.newaxis]
+    # Map wire assignments to feeder assignments (same logic as objective_function_squared_sum)
+    feeder_assignments = solution // wires_per_feeder
     
-    # Calculate estimated wire supplies
-    estimated_wires = assignment_mask @ meters
+    # Initialize the estimated supply for each feeder line based on the proposed solution
+    estimated_lines = np.zeros_like(lines)
+    
+    # For each feeder, find all consumers connected to it and sum their consumption
+    for f_idx in range(nf):
+        consumer_indices = np.where(feeder_assignments == f_idx)[0]
+        if len(consumer_indices) > 0:
+            estimated_lines[f_idx, :] = np.sum(meters[consumer_indices, :], axis=0)
     
     # Calculate the maximum absolute error (L∞ norm)
-    max_error = np.max(np.abs(lines - estimated_wires))
+    max_error = np.max(np.abs(lines - estimated_lines))
     
     return float(max_error)
 
@@ -318,7 +326,7 @@ def objective_function_huber_loss(solution: np.ndarray, nc: int, nf: int,
     This makes it robust to outliers while still being smooth and differentiable.
     
     Mathematical formulation:
-    f(w) = sum_{w=1 to nw} sum_{t=1 to T} huber_δ(y_w(t) - sum_{i: w_i = w} x_i(t))
+    f(w) = sum_{l=1 to nf} sum_{t=1 to T} huber_δ(y_l(t) - sum_{i: cable(w_i) = l} x_i(t))
     
     where huber_δ(a) = {
         0.5 * a²           if |a| ≤ δ
@@ -330,34 +338,37 @@ def objective_function_huber_loss(solution: np.ndarray, nc: int, nf: int,
         nc: Number of consumers (apartments).
         nf: Number of feeders (cables).
         meters: Consumption data for each consumer. Shape (nc, nt).
-        lines: Supply data for each wire. Shape (nf * wires_per_feeder, nt).
+        lines: Supply data for each feeder. Shape (nf, nt).
         wires_per_feeder: Number of wires per feeder.
         delta: Threshold parameter for Huber loss transition.
     
     Returns:
         float: Sum of Huber losses.
     """
-    # Calculate total number of wires
-    nw = nf * wires_per_feeder
-    
     # Validate input dimensions
     if solution.shape[0] != nc:
         raise ValueError(f"Solution must have {nc} elements, got {solution.shape[0]}")
     if meters.shape[0] != nc:
         raise ValueError(f"Meters must have {nc} rows, got {meters.shape[0]}")
-    if lines.shape[0] != nw:
-        raise ValueError(f"Lines must have {nw} rows, got {lines.shape[0]}")
+    if lines.shape[0] != nf:
+        raise ValueError(f"Lines must have {nf} rows, got {lines.shape[0]}")
     if meters.shape[1] != lines.shape[1]:
         raise ValueError("Meters and lines must have same number of time steps")
     
-    # Create assignment mask
-    assignment_mask = solution[np.newaxis, :] == np.arange(nw)[:, np.newaxis]
+    # Map wire assignments to feeder assignments (same logic as objective_function_squared_sum)
+    feeder_assignments = solution // wires_per_feeder
     
-    # Calculate estimated wire supplies
-    estimated_wires = assignment_mask @ meters
+    # Initialize the estimated supply for each feeder line based on the proposed solution
+    estimated_lines = np.zeros_like(lines)
+    
+    # For each feeder, find all consumers connected to it and sum their consumption
+    for f_idx in range(nf):
+        consumer_indices = np.where(feeder_assignments == f_idx)[0]
+        if len(consumer_indices) > 0:
+            estimated_lines[f_idx, :] = np.sum(meters[consumer_indices, :], axis=0)
     
     # Calculate residuals
-    residuals = lines - estimated_wires
+    residuals = lines - estimated_lines
     abs_residuals = np.abs(residuals)
     
     # Apply Huber loss function

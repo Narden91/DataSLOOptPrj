@@ -8,6 +8,7 @@ from heuristics.local_search import iterative_local_search
 from heuristics.utils import random_perturbation
 import numpy as np
 
+
 def run_iterative_local_search(objective_function, generate_neighbors, perturbation, data_path,
                                nc, nf, nt, seed, wires_per_feeder, max_iter, max_ils_iter):
     np.random.seed(seed)

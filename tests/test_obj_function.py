@@ -11,7 +11,7 @@ from feeder_mapping import IdealGenerator, objective_function_squared_sum, gener
     objective_function_correlation_based, objective_function_huber_loss, objective_function_mae_based, objective_function_max_error_based
 
 
-def plot_results(results):
+def plot_results(results, objective_function_name="unknown"):
     """Generates and displays a plot of the sorted objective function scores."""
     
     # Sort results by score in ascending order
@@ -76,12 +76,12 @@ def plot_results(results):
     if not os.path.exists(plots_dir):
         os.makedirs(plots_dir)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    plot_filename = os.path.join(plots_dir, f"bruteforce_results_{timestamp}.png")
+    plot_filename = os.path.join(plots_dir, f"bruteforce_results_{objective_function_name}_{timestamp}.png")
     fig.savefig(plot_filename, dpi=300)
     print(f"💾 Plot saved to: {plot_filename}\n")
 
 
-def plot_results_lexicographic(results):
+def plot_results_lexicographic(results, objective_function_name="unknown"):
     """Generates and displays a plot with vectors ordered lexicographically on the x-axis."""
     
     # Sort results by solution vector in lexicographic order
@@ -182,7 +182,7 @@ def plot_results_lexicographic(results):
     if not os.path.exists(plots_dir):
         os.makedirs(plots_dir)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    plot_filename = os.path.join(plots_dir, f"bruteforce_lexicographic_{timestamp}.png")
+    plot_filename = os.path.join(plots_dir, f"bruteforce_lexicographic_{objective_function_name}_{timestamp}.png")
     fig.savefig(plot_filename, dpi=300, bbox_inches='tight')
     print(f"💾 Lexicographic plot saved to: {plot_filename}\n")
 
@@ -200,6 +200,9 @@ def run_bruteforce_test(objective_function, nc=4, nf=4, wires_per_feeder=3, nt=1
     seed: Random seed for reproducibility.
     
     """
+    # Get the objective function name
+    objective_function_name = objective_function.__name__
+    
     # 1. Calculate the total number of wires in the system
     nw = nf * wires_per_feeder 
 
@@ -213,6 +216,7 @@ def run_bruteforce_test(objective_function, nc=4, nf=4, wires_per_feeder=3, nt=1
     print(f"🔢 Total wires:            {nw}")
     print(f"🎯 Random seed:            {seed}")
     print(f"🧮 Total combinations:     {nw**nc:,} ({nw}^{nc})")
+    print(f"📊 Objective function:     {objective_function_name}")
     print("="*70)
 
     # 2. Generate ideal data based on a known ground truth
@@ -255,8 +259,8 @@ def run_bruteforce_test(objective_function, nc=4, nf=4, wires_per_feeder=3, nt=1
     print("✅ Evaluation complete!")
 
     # 4. Plot the results - both sorted by score and lexicographic order
-    plot_results(results)
-    plot_results_lexicographic(results)
+    plot_results(results, objective_function_name)
+    # plot_results_lexicographic(results, objective_function_name) 
 
 
 if __name__ == "__main__":
@@ -273,8 +277,7 @@ if __name__ == "__main__":
     # 4. Huber loss -> objective_function_huber_loss
     # 5. Mean Absolute Error -> objective_function_mae_based
     # 6. Max error -> objective_function_max_error_based
-    objective_function = objective_function_squared_sum # objective_function_wire_assignment
-    
+    objective_function = objective_function_wire_assignment    
     
     run_bruteforce_test(
         objective_function=objective_function,
